@@ -1,0 +1,3 @@
+[submodule "components/esp32-utils"]
+	path = components/esp32-utils
+	url = git@github.com:DavidAntliff/esp32-utils.git
