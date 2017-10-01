@@ -15,9 +15,13 @@
 #define DCO_OUT_GPIO (GPIO_NUM_4)
 
 #define RMT_TX_CHANNEL RMT_CHANNEL_0
-#define RMT_CLK_DIV    80   // 1 MHz resolution
 
-#define FREQUENCY 1000000.0   // Hz
+#define FREQUENCY 51.0   // Hz
+//#define FREQUENCY 4998.0   // Hz
+//#define FREQUENCY 500000.0   // Hz
+//#define FREQUENCY 163700.0   // Hz
+//#define FREQUENCY 1637000.0   // Hz
+//#define FREQUENCY 16300000.0   // Hz
 
 void dco_task(void * pvParameter)
 {
@@ -40,19 +44,33 @@ void dco_task(void * pvParameter)
 
 void dco_rmt_task(void * pvParameter)
 {
-    ESP_LOGI(TAG, "frequency %f Hz", FREQUENCY);
+    double frequency = FREQUENCY;
+    ESP_LOGI(TAG, "frequency %f Hz", frequency);
 
     // calculate the period from the requested frequency
-    double period = 1.0 / FREQUENCY;
+    double period = 1.0 / frequency;
     ESP_LOGI(TAG, "period %0.6f s", period);
 
     // fetch the APB clock rate
     uint32_t apb_freq = get_apb_frequency_MHz() * 1000000;
     ESP_LOGI(TAG, "apb freq %d", apb_freq);
 
+    // lower divider provides higher resolution
+    uint8_t clock_divider = 1;
+    ESP_LOGI(TAG, "clock divider %d", clock_divider);
+
+    // divided frequency
+    double div_freq = apb_freq / clock_divider;
+    ESP_LOGI(TAG, "div freq %f", div_freq);
+
+    // maximum frequency
+    double max_frequency = div_freq / 2.0;  // two transitions per cycle
+    ESP_LOGI(TAG, "max frequency %f", max_frequency);
+    assert(frequency <= max_frequency);
+
     // Determine the equivalent number of APB clock periods
     // Round to nearest int
-    uint32_t period_count = (uint32_t)(period / (1.0 / apb_freq) + 0.5);
+    uint32_t period_count = (uint32_t)(period / (1.0 / div_freq) + 0.5);
     ESP_LOGI(TAG, "period_count %d", period_count);
 
     // Let's use a single RAM block for maximum interoperability with other software.
@@ -64,12 +82,16 @@ void dco_rmt_task(void * pvParameter)
     // For slower rates, the clock divider can be used. E.g. a divider of 4 will
     // correspond to a minimum frequency of approximately 4.844 Hz.
 
-    uint8_t clock_divider = 1;
     uint32_t high_count = period_count / 2;
     uint32_t low_count = period_count  - high_count;
+    ESP_LOGI(TAG, "high_count %d", high_count);
+    ESP_LOGI(TAG, "low_count %d", low_count);
 
     // So find the minimum clock divider that allows for an approximation
     // to the desired frequency.
+    double actual_frequency = div_freq / period_count;
+    ESP_LOGI(TAG, "actual frequency %f", actual_frequency);
+    ESP_LOGI(TAG, "discrepancy %f ppm", (actual_frequency - frequency) / frequency * 1000000);
 
 //    // calculate optimal way to produce requested frequency
 //    double reqd_period = 1.0 / FREQUENCY;
@@ -77,7 +99,9 @@ void dco_rmt_task(void * pvParameter)
 //    ESP_LOGI(TAG, "reqd frequency %g Hz", FREQUENCY);
 //    ESP_LOGI(TAG, "reqd period %g s", reqd_period);
 
-    const uint8_t max_items = 7;//RMT_LOOP_MAX_ITEMS_PER_MEM_BLOCK;
+    // For some reason, there needs to be some space at the end of the block
+    //  - sometimes one item, sometimes two items, sometimes even three...
+    const uint8_t max_items = RMT_MEM_ITEM_NUM - 3;
 
     // Items are split into two sections: 0 and 1
 
@@ -212,7 +236,7 @@ void rmt_task(void * pvParameter)
 //    uint8_t clock_divider = 40;
 //    uint32_t high_count = 1;
 //    uint32_t low_count = 1;
-    uint8_t clock_divider = 13;
+    uint8_t clock_divider = 80;
     uint32_t high_count = 1;
     uint32_t low_count = 1;
 
@@ -230,7 +254,7 @@ void rmt_task(void * pvParameter)
     rmt_config(&rmt_tx);
     rmt_driver_install(rmt_tx.channel, 0, 0);
 
-    size_t num_items = 48;
+    size_t num_items = 63;
     rmt_item32_t * items = calloc(num_items, sizeof(*items));
     for (size_t i = 0; i < num_items; ++i)
     {
@@ -260,8 +284,8 @@ void rmt_task(void * pvParameter)
 
 void app_main()
 {
-//    xTaskCreate(&dco_rmt_task, "dco_task", 2048, NULL, 5, NULL);
+    xTaskCreate(&dco_rmt_task, "dco_task", 2048, NULL, 5, NULL);
 //    xTaskCreate(&dco_task, "dco_task", 2048, NULL, 5, NULL);
-    xTaskCreate(&rmt_task, "rmt_task", 2048, NULL, 5, NULL);
+//    xTaskCreate(&rmt_task, "rmt_task", 2048, NULL, 5, NULL);
 }
 
