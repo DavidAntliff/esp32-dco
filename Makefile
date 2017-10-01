@@ -3,6 +3,8 @@
 # project subdirectory.
 #
 
+VERBOSE := 1
+
 PROJECT_NAME := esp32-template
 
 include $(IDF_PATH)/make/project.mk
