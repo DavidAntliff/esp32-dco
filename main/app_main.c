@@ -11,24 +11,39 @@
 
 #define TAG "dco"
 
-#define BLUE_LED_GPIO (GPIO_NUM_2)
-#define DCO_OUT_GPIO (GPIO_NUM_4)
+#define BLUE_LED_GPIO (CONFIG_ONBOARD_LED_GPIO)
+#define DCO_OUT_GPIO  (CONFIG_DCO_OUTPUT_GPIO)
 
 #define RMT_TX_CHANNEL RMT_CHANNEL_0
 
-#define FREQUENCY 51.0   // Hz
-//#define FREQUENCY 4998.0   // Hz
-//#define FREQUENCY 500000.0   // Hz
-//#define FREQUENCY 163700.0   // Hz
-//#define FREQUENCY 1637000.0   // Hz
-//#define FREQUENCY 16300000.0   // Hz
+// Be aware of the clock divider as it determines the minimum frequency that can be generated.
+// Minimum generated frequency is determined by RMT clock divider:
+//
+//   min_freq = 80MHz / CLOCK_DIVIDER / (2 * 32767 * 63)  Hz
+//
+// However a lower divider provides better resolution, so use the largest value that
+// accommodates the requested frequency.
+
+//#define FREQUENCY_HZ 1.0
+//#define FREQUENCY_HZ 10.0
+#define FREQUENCY_HZ 51.7
+//#define FREQUENCY_HZ 4998.0
+//#define FREQUENCY_HZ 500000.0
+//#define FREQUENCY_HZ 163700.0
+//#define FREQUENCY_HZ 1637000.0
+//#define FREQUENCY_HZ 16300000.0
+
+#define CLOCK_DIVIDER 1    // Generate a minimum frequency of 19.38 Hz
+//#define CLOCK_DIVIDER 2    // Generate a minimum frequency of 9.688 Hz
+//#define CLOCK_DIVIDER 16   // Generate a minimum frequency of 1.2111 Hz
+//#define CLOCK_DIVIDER 64   // Generate a minimum frequency of 0.30276 Hz
 
 void dco_task(void * pvParameter)
 {
     gpio_pad_select_gpio(DCO_OUT_GPIO);
     gpio_set_direction(DCO_OUT_GPIO, GPIO_MODE_OUTPUT);
 
-    float period = 1.0 / FREQUENCY;
+    float period = 1.0 / FREQUENCY_HZ;
     TickType_t delay = 1000 * period / portTICK_RATE_MS / 2;
     ESP_LOGI(TAG, "Delay %d ticks", delay);
 
@@ -44,7 +59,7 @@ void dco_task(void * pvParameter)
 
 void dco_rmt_task(void * pvParameter)
 {
-    double frequency = FREQUENCY;
+    double frequency = FREQUENCY_HZ;
     ESP_LOGI(TAG, "frequency %f Hz", frequency);
 
     // calculate the period from the requested frequency
@@ -56,7 +71,7 @@ void dco_rmt_task(void * pvParameter)
     ESP_LOGI(TAG, "apb freq %d", apb_freq);
 
     // lower divider provides higher resolution
-    uint8_t clock_divider = 1;
+    uint8_t clock_divider = CLOCK_DIVIDER;
     ESP_LOGI(TAG, "clock divider %d", clock_divider);
 
     // divided frequency
@@ -113,6 +128,14 @@ void dco_rmt_task(void * pvParameter)
     // floor:
     const uint8_t max_periods_per_mem_block = max_counts_per_mem_block / period_count;
     ESP_LOGI(TAG, "max_periods_per_mem_block %d", max_periods_per_mem_block);
+
+    // if the requested frequency is too low, print an error message and assert
+    if (max_periods_per_mem_block == 0)
+    {
+        ESP_LOGE(TAG, "Requested frequency %f is too low for the current clock divider %d", frequency, clock_divider);
+        ESP_LOGE(TAG, "Try increasing the divider value to generate lower frequencies");
+        assert(max_periods_per_mem_block > 0);
+    }
 
     // to reduce interrupt load at high frequencies, use multiple cycles
     //const uint8_t num_items =

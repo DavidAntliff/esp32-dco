@@ -1,0 +1,19 @@
+menu "esp32-dco Configuration"
+
+config ONBOARD_LED_GPIO
+    int "Onboard LED GPIO number"
+    range 0 34
+    default 2
+    help
+        GPIO number (IOxx) connected to onboard LED.
+
+config DCO_OUTPUT_GPIO
+    int "DCO signal GPIO number"
+	range 0 34
+	default 4
+	help
+		GPIO number (IOxx) from which to output DCO signal.
+
+		Some GPIOs are used for other purposes (flash connections, etc.) and cannot be used.
+
+endmenu
