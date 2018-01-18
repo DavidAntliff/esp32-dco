@@ -1,4 +1,30 @@
+/*
+ * MIT License
+ *
+ * Copyright (c) 2018 David Antliff
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
+
 #include <stdio.h>
+#include <stdbool.h>
+
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_system.h"
@@ -26,7 +52,8 @@
 
 //#define FREQUENCY_HZ 1.0
 //#define FREQUENCY_HZ 10.0
-#define FREQUENCY_HZ 51.7
+#define FREQUENCY_HZ 32.1
+//#define FREQUENCY_HZ 51.7
 //#define FREQUENCY_HZ 4998.0
 //#define FREQUENCY_HZ 500000.0
 //#define FREQUENCY_HZ 163700.0
@@ -245,6 +272,11 @@ void dco_rmt_task(void * pvParameter)
     };
     rmt_config(&rmt_tx);
     rmt_driver_install(rmt_tx.channel, 0, 0);
+
+    // also drive onboard LED
+    gpio_pad_select_gpio(BLUE_LED_GPIO);
+    gpio_set_direction(BLUE_LED_GPIO, GPIO_MODE_OUTPUT);
+    gpio_matrix_out(BLUE_LED_GPIO, RMT_SIG_OUT0_IDX + rmt_tx.channel, 0, 0);
 
     rmt_write_items(RMT_TX_CHANNEL, items, num_items, false);
 
