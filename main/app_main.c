@@ -42,10 +42,13 @@
 
 #define RMT_TX_CHANNEL RMT_CHANNEL_0
 
+// seems to need to be 61 or less for stability.
+#define MAX_ITEMS_PER_BLOCK  (RMT_MEM_ITEM_NUM - 3)
+
 // Be aware of the clock divider as it determines the minimum frequency that can be generated.
 // Minimum generated frequency is determined by RMT clock divider:
 //
-//   min_freq = 80MHz / CLOCK_DIVIDER / (2 * 32767 * 63)  Hz
+//   min_freq = 80MHz / CLOCK_DIVIDER / (2 * 32767 * MAX_ITEMS_PER_BLOCK)  Hz
 //
 // However a lower divider provides better resolution, so use the largest value that
 // accommodates the requested frequency.
@@ -60,11 +63,12 @@
 //#define FREQUENCY_HZ 1637000.0
 //#define FREQUENCY_HZ 16300000.0
 
-//#define CLOCK_DIVIDER 1    // Generate a minimum frequency of 19.38 Hz
-//#define CLOCK_DIVIDER 2    // Generate a minimum frequency of 9.688 Hz
-#define CLOCK_DIVIDER 4      // Generate a minimum frequency of 4.84 Hz
-//#define CLOCK_DIVIDER 16   // Generate a minimum frequency of 1.2111 Hz
-//#define CLOCK_DIVIDER 64   // Generate a minimum frequency of 0.30276 Hz
+// 8-bit RMT divider:
+//#define CLOCK_DIVIDER 1    // Generate a minimum frequency of ~20.012 Hz
+//#define CLOCK_DIVIDER 2    // Generate a minimum frequency of ~10.006 Hz
+#define CLOCK_DIVIDER 4    // Generate a minimum frequency of ~5.003 Hz
+//#define CLOCK_DIVIDER 16   // Generate a minimum frequency of ~1.251 Hz
+//#define CLOCK_DIVIDER 64   // Generate a minimum frequency of ~0.313 Hz
 
 void dco_rmt_task(void * pvParameter)
 {
