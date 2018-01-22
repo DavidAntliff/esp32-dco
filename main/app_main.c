@@ -37,8 +37,8 @@
 
 #define TAG "dco"
 
-#define BLUE_LED_GPIO (CONFIG_ONBOARD_LED_GPIO)
-#define DCO_OUT_GPIO  (CONFIG_DCO_OUTPUT_GPIO)
+#define GPIO_LED       (CONFIG_ONBOARD_LED_GPIO)
+#define GPIO_DCO_OUT   (CONFIG_DCO_OUTPUT_GPIO)
 
 #define RMT_TX_CHANNEL RMT_CHANNEL_0
 
@@ -51,8 +51,8 @@
 // accommodates the requested frequency.
 
 //#define FREQUENCY_HZ 1.0
-//#define FREQUENCY_HZ 10.0
-#define FREQUENCY_HZ 32.1
+#define FREQUENCY_HZ 10.0
+//#define FREQUENCY_HZ 32.1
 //#define FREQUENCY_HZ 51.7
 //#define FREQUENCY_HZ 4998.0
 //#define FREQUENCY_HZ 500000.0
@@ -60,29 +60,11 @@
 //#define FREQUENCY_HZ 1637000.0
 //#define FREQUENCY_HZ 16300000.0
 
-#define CLOCK_DIVIDER 1    // Generate a minimum frequency of 19.38 Hz
+//#define CLOCK_DIVIDER 1    // Generate a minimum frequency of 19.38 Hz
 //#define CLOCK_DIVIDER 2    // Generate a minimum frequency of 9.688 Hz
+#define CLOCK_DIVIDER 4      // Generate a minimum frequency of 4.84 Hz
 //#define CLOCK_DIVIDER 16   // Generate a minimum frequency of 1.2111 Hz
 //#define CLOCK_DIVIDER 64   // Generate a minimum frequency of 0.30276 Hz
-
-void dco_task(void * pvParameter)
-{
-    gpio_pad_select_gpio(DCO_OUT_GPIO);
-    gpio_set_direction(DCO_OUT_GPIO, GPIO_MODE_OUTPUT);
-
-    float period = 1.0 / FREQUENCY_HZ;
-    TickType_t delay = 1000 * period / portTICK_RATE_MS / 2;
-    ESP_LOGI(TAG, "Delay %d ticks", delay);
-
-    while(1)
-    {
-        ESP_LOGI(TAG, "loop");
-//        gpio_set_level(DCO_OUT_GPIO, 0);
-        vTaskDelay(delay);
-//        gpio_set_level(DCO_OUT_GPIO, 1);
-        vTaskDelay(delay);
-    }
-}
 
 void dco_rmt_task(void * pvParameter)
 {
@@ -262,7 +244,7 @@ void dco_rmt_task(void * pvParameter)
     rmt_config_t rmt_tx = {
         .rmt_mode = RMT_MODE_TX,
         .channel = RMT_TX_CHANNEL,
-        .gpio_num = DCO_OUT_GPIO,
+        .gpio_num = GPIO_DCO_OUT,
         .mem_block_num = 1,  // single block
         .clk_div = clock_divider,
         .tx_config.loop_en = true,
@@ -274,9 +256,9 @@ void dco_rmt_task(void * pvParameter)
     rmt_driver_install(rmt_tx.channel, 0, 0);
 
     // also drive onboard LED
-    gpio_pad_select_gpio(BLUE_LED_GPIO);
-    gpio_set_direction(BLUE_LED_GPIO, GPIO_MODE_OUTPUT);
-    gpio_matrix_out(BLUE_LED_GPIO, RMT_SIG_OUT0_IDX + rmt_tx.channel, 0, 0);
+    gpio_pad_select_gpio(GPIO_LED);
+    gpio_set_direction(GPIO_LED, GPIO_MODE_OUTPUT);
+    gpio_matrix_out(GPIO_LED, RMT_SIG_OUT0_IDX + rmt_tx.channel, 0, 0);
 
     rmt_write_items(RMT_TX_CHANNEL, items, num_items, false);
 
@@ -286,61 +268,8 @@ void dco_rmt_task(void * pvParameter)
     vTaskDelete(NULL);
 }
 
-void rmt_task(void * pvParameter)
-{
-//    uint8_t clock_divider = 40;
-//    uint32_t high_count = 1;
-//    uint32_t low_count = 1;
-    uint8_t clock_divider = 80;
-    uint32_t high_count = 1;
-    uint32_t low_count = 1;
-
-    rmt_config_t rmt_tx = {
-        .rmt_mode = RMT_MODE_TX,
-        .channel = RMT_CHANNEL_0,
-        .gpio_num = GPIO_NUM_4,
-        .mem_block_num = 1,
-        .clk_div = clock_divider,
-        .tx_config.loop_en = true,
-        .tx_config.carrier_en = false,
-        .tx_config.idle_level = RMT_IDLE_LEVEL_LOW,
-        .tx_config.idle_output_en = true,
-    };
-    rmt_config(&rmt_tx);
-    rmt_driver_install(rmt_tx.channel, 0, 0);
-
-    size_t num_items = 63;
-    rmt_item32_t * items = calloc(num_items, sizeof(*items));
-    for (size_t i = 0; i < num_items; ++i)
-    {
-        items[i].level0 = 1;
-        items[i].duration0 = high_count;
-        items[i].level1 = 0;
-        items[i].duration1 = low_count;
-    }
-
-    // shorten final item to accommodate final idle period
-    --items[num_items - 1].duration1;
-
-    for (size_t i = 0; i < num_items; ++i)
-    {
-        ESP_LOGI(TAG, "%2d: level0 %d, duration0 %5d | level1 %d, duration1 %5d", i, items[i].level0, items[i].duration0, items[i].level1, items[i].duration1);
-    }
-
-    rmt_write_items(rmt_tx.channel, items, num_items, false);
-
-    while(1)
-    {
-        //ESP_LOGI(TAG, "wait");
-        vTaskDelay(1);
-    }
-}
-
-
 void app_main()
 {
     xTaskCreate(&dco_rmt_task, "dco_task", 2048, NULL, 5, NULL);
-//    xTaskCreate(&dco_task, "dco_task", 2048, NULL, 5, NULL);
-//    xTaskCreate(&rmt_task, "rmt_task", 2048, NULL, 5, NULL);
 }
 
