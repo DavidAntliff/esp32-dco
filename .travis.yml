@@ -1,0 +1,37 @@
+os: linux
+dist: bionic
+language: python
+python: "3.8"
+
+jobs:
+  include:
+    - stage:  # IDF v3.3
+      install:
+        # Install ESP32 toochain following steps as described
+        # in http://esp-idf.readthedocs.io/en/latest/linux-setup.html
+        #
+        # Download binary toolchain for the ESP32
+        - pushd ~
+        - wget https://dl.espressif.com/dl/xtensa-esp32-elf-linux64-1.22.0-80-g6c4433a-5.2.0.tar.gz
+        - tar -xzf xtensa-esp32-elf-linux64-1.22.0-80-g6c4433a-5.2.0.tar.gz
+        # Make xtensa-esp32-elf available for all terminal sessions
+        - export PATH=$PATH:$(pwd)/xtensa-esp32-elf/bin
+        # Get ESP-IDF from github
+        - git clone --recursive --branch v3.3 --single-branch --shallow-submodules https://github.com/espressif/esp-idf.git esp-idf
+        # Set the path to ESP-IDF directory
+        - export IDF_PATH=$(pwd)/esp-idf
+        # Install python dependencies
+        - pip install --requirement $IDF_PATH/requirements.txt
+        - popd
+      script:
+        - $IDF_PATH/tools/idf.py build
+
+    - stage:  # IDF v4.1-beta1
+      install:
+        - pushd ~
+        - git clone --recursive --branch v4.1-beta1 --single-branch --shallow-submodules https://github.com/espressif/esp-idf.git esp-idf
+        - esp-idf/install.sh
+        - popd
+      script:
+        - source ~/esp-idf/export.sh && idf.py build
+
